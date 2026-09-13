@@ -132,6 +132,13 @@ const actions = {
     const content = String(text || '').trim()
     if (!content || state.sending) return null
 
+    // Snapshot how many real assistant replies we have before sending, so a
+    // post-timeout reconciliation can tell a genuinely new reply apart from
+    // messages that were already on screen.
+    const previousAssistantCount = state.messages.filter(
+      (message) => message.role === 'assistant' && !message.isError,
+    ).length
+
     commit('SET_ERROR', null)
     commit('ADD_MESSAGE', {
       id: createId(),
@@ -175,10 +182,41 @@ const actions = {
         createdAt: new Date().toISOString(),
         isError: true,
       })
+
+      dispatch('fetchConversations').catch(() => {})
+
+      // The client gave up waiting, but the backend (Ollama + MCP) may still
+      // finish and persist the real reply. Poll the conversation once and
+      // swap the error bubble for the actual answer if it has landed.
+      if (err?.isTimeout && state.conversationId) {
+        const reconciled = await dispatch('reconcileAfterTimeout', previousAssistantCount).catch(
+          () => false,
+        )
+        if (reconciled) return null
+      }
+
       throw err
     } finally {
       commit('SET_SENDING', false)
     }
+  },
+
+  async reconcileAfterTimeout({ commit, state }, previousAssistantCount) {
+    const conversation = await chatService.getConversation(state.conversationId)
+    const messages = Array.isArray(conversation?.messages)
+      ? conversation.messages
+          .filter((message) => message?.role === 'user' || message?.role === 'assistant')
+          .map(mapApiMessage)
+          .filter((message) => message.content || message.toolCalls.length)
+      : []
+
+    const assistantCount = messages.filter((message) => message.role === 'assistant').length
+    if (assistantCount <= previousAssistantCount) return false
+
+    commit('SET_CONVERSATION_ID', conversation?.id || state.conversationId)
+    commit('SET_MESSAGES', messages)
+    commit('SET_ERROR', null)
+    return true
   },
 }
 

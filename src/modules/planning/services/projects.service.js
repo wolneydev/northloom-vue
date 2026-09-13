@@ -1,4 +1,8 @@
 import httpClient from '@/core/http/httpClient'
+import {
+  normalizeProjectCurrency,
+  normalizeProjectHours,
+} from '@/modules/planning/types/planning.types'
 
 // Laravel resource controllers commonly wrap payloads in `{ data: ... }`.
 // Unwrap defensively so callers always receive the bare model/collection.
@@ -57,12 +61,25 @@ export const normalizeList = (data) => {
   return { items: [], currentPage: 1, lastPage: 1 }
 }
 
+const toProjectBody = (payload) => {
+  const hours = normalizeProjectHours(payload.hours)
+  return {
+    name: payload.name,
+    starts_on: payload.starts_on,
+    expected_ends_on: payload.expected_ends_on,
+    currency: normalizeProjectCurrency(payload.currency),
+    hours: Number.isFinite(hours) ? hours : null,
+    notes: payload.notes || null,
+  }
+}
+
 // Transport layer for the projects domain.
 //   GET    /api/projects
 //   POST   /api/projects
 //   GET    /api/projects/{id}
 //   PUT    /api/projects/{id}
 //   DELETE /api/projects/{id}
+// currency and hours are optional; empty values are sent as null.
 export const projectsService = {
   async list({ page = '', perPage = '' } = {}) {
     const { data } = await httpClient.get('/projects', {
@@ -93,24 +110,12 @@ export const projectsService = {
   },
 
   async create(payload) {
-    const { data } = await httpClient.post('/projects', {
-      name: payload.name,
-      starts_on: payload.starts_on,
-      expected_ends_on: payload.expected_ends_on,
-      currency: payload.currency,
-      notes: payload.notes || null,
-    })
+    const { data } = await httpClient.post('/projects', toProjectBody(payload))
     return unwrap(data)
   },
 
   async update(id, payload) {
-    const { data } = await httpClient.put(`/projects/${id}`, {
-      name: payload.name,
-      starts_on: payload.starts_on,
-      expected_ends_on: payload.expected_ends_on,
-      currency: payload.currency,
-      notes: payload.notes || null,
-    })
+    const { data } = await httpClient.put(`/projects/${id}`, toProjectBody(payload))
     return unwrap(data)
   },
 

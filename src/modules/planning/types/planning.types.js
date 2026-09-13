@@ -10,7 +10,8 @@
  * @property {string} starts_on            ISO date (YYYY-MM-DD)
  * @property {string} expected_ends_on     ISO date (YYYY-MM-DD)
  * @property {string|null} notes
- * @property {string} currency             ISO 4217 code used by all project finances
+ * @property {string|null} currency        ISO 4217 code when finances are used; optional
+ * @property {number|null} hours           Optional non-negative effort estimate
  */
 
 /**
@@ -220,4 +221,52 @@ export const taskToCalendarEvent = (task, projectNames = {}) => {
       notify_at: taskNotifyAt(task),
     },
   }
+}
+
+/**
+ * @param {unknown} value
+ * @returns {string|null}
+ */
+export const normalizeProjectCurrency = (value) => {
+  const code = typeof value === 'string' ? value.trim().toUpperCase() : ''
+  return code === '' ? null : code
+}
+
+/**
+ * @param {unknown} value
+ * @returns {boolean}
+ */
+export const isValidProjectCurrency = (value) => {
+  const code = normalizeProjectCurrency(value)
+  return code === null || /^[A-Z]{3}$/.test(code)
+}
+
+/**
+ * @param {unknown} value
+ * @returns {number|null}
+ */
+export const normalizeProjectHours = (value) => {
+  if (value == null || value === '') return null
+  const n = typeof value === 'number' ? value : Number(String(value).trim().replace(',', '.'))
+  if (!Number.isFinite(n)) return Number.NaN
+  return n
+}
+
+/**
+ * @param {unknown} value
+ * @returns {boolean}
+ */
+export const isValidProjectHours = (value) => {
+  const n = normalizeProjectHours(value)
+  return n === null || (Number.isFinite(n) && n >= 0)
+}
+
+/**
+ * @param {unknown} value
+ * @returns {string}
+ */
+export const formatProjectHours = (value) => {
+  const n = normalizeProjectHours(value)
+  if (n === null || !Number.isFinite(n)) return ''
+  return n === 1 ? '1 hour' : `${n} hours`
 }

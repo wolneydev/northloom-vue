@@ -108,6 +108,7 @@ tocar nas existentes. Remover uma feature = apagar a pasta.
 | 11 | Camada de Service como "transport layer" fino | `modules/*/services/*.service.js` |
 | 12 | Tipos/constantes/mappers de domínio centralizados | `modules/planning/types/planning.types.js` |
 | 13 | View desacoplada via getters/dispatch | `modules/planning/pages/CalendarPage.vue` |
+| 14 | Sugestão de criação (read-only) no fluxo de novo projeto/tarefa | `modules/planning/services/creationIdeas.service.js` |
 
 ---
 
@@ -701,7 +702,10 @@ ProjectFundsPage / ProjectCostsPage / TaskFinancePage
 
 Contratos e regras principais:
 
-- `Project.currency` (ISO 4217) é a fonte única para formatação e precisão.
+- `Project.currency` (ISO 4217) is optional. When set, it is the source of truth
+  for finance formatting. When unset, fund/cost screens keep asking the user to
+  configure it. Optional `Project.hours` is a non-negative effort estimate shown
+  on the project detail view.
 - Valores monetários atravessam a API como strings decimais; validação e comparação
   usam minor units em `BigInt`, nunca aritmética de ponto flutuante.
 - `incurred_on` é uma data civil `YYYY-MM-DD` sem conversão de fuso.
@@ -721,6 +725,25 @@ Rotas protegidas e lazy-loaded:
 
 Os contratos de integração completos estão em
 `specs/001-project-finances/contracts/project-finances.openapi.yaml`.
+
+### 7.6. Fluxo de ideia de criação (projeto e tarefa)
+
+Abrir o formulário **não** persiste projeto, tarefa nem a própria sugestão.
+A ideia é só leitura; criar continua nos POSTs já existentes.
+
+```
+ProjectFormPage (create) / TaskFormModal (create)
+   → dispatch('creationIdeas/fetchIdea', { target, projectId? })
+        → creationIdeasService.get() → GET /api/creation-ideas
+        → mapCreationIdea (headline → name/title, suggestion → notes)
+   → usuário edita, ou "Sugerir outra ideia" (outro GET, sem POST)
+   → dispatch('projects/createProject' | 'tasks/createTask')
+        → POST /api/projects | create de tarefa já existente
+```
+
+Telas de edição não disparam `fetchIdea`. Falha ao carregar a ideia deixa o
+formulário usável. `403` em ideia de tarefa (projeto de outro dono) impede o
+submit. O relógio (`at`) não aparece na UI.
 
 ---
 

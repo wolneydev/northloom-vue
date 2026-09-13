@@ -33,7 +33,7 @@ export const chatService = {
         message,
         conversation_id: conversationId || null,
       },
-      { timeout: 130000 },
+      { timeout: 250000 },
     )
     return unwrap(data)
   },
@@ -46,7 +46,7 @@ export const chatService = {
   },
 
   async getConversation(id) {
-    const { data } = await httpClient.get(`/conversations/${id}`)
+    const { data } = await httpClient.get(`/conversations/${id}`, { timeout: 60000 })
     return unwrap(data)
   },
 }
