@@ -10,6 +10,7 @@
           <h1>{{ project.name }}</h1>
           <p class="period muted">
             {{ formatDate(project.starts_on) }} → {{ formatDate(project.expected_ends_on) }}
+            <span v-if="formatProjectHours(project.hours)"> · {{ formatProjectHours(project.hours) }}</span>
           </p>
         </div>
         <div class="head-actions">
@@ -128,6 +129,7 @@ import {
   toTimeInput,
   formatDate,
   formatReminder,
+  formatProjectHours,
   taskNotifyAt,
 } from '@/modules/planning/types/planning.types'
 

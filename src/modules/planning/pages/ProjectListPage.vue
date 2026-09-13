@@ -35,6 +35,9 @@
               <router-link :to="`/projects/${project.id}`" class="project-link">
                 {{ project.name }}
               </router-link>
+              <span v-if="formatProjectHours(project.hours)" class="muted">
+                · {{ formatProjectHours(project.hours) }}
+              </span>
               <span v-if="project.notes" class="muted project-notes">{{ project.notes }}</span>
             </td>
             <td>{{ formatDate(project.starts_on) }}</td>
@@ -69,7 +72,7 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import { useStore } from 'vuex'
-import { formatDate } from '@/modules/planning/types/planning.types'
+import { formatDate, formatProjectHours } from '@/modules/planning/types/planning.types'
 
 const store = useStore()
 

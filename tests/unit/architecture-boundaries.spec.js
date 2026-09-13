@@ -17,8 +17,14 @@ const financialViews = [
   'src/modules/planning/components/AllocationHistoryList.vue',
 ]
 
+const ideaViews = [
+  'src/modules/planning/pages/ProjectFormPage.vue',
+  'src/modules/planning/components/TaskFormModal.vue',
+  'src/modules/planning/components/CreationIdeaHint.vue',
+]
+
 describe('financial architecture boundaries', () => {
-  it.each(financialViews)('%s does not bypass Vuex for HTTP', (path) => {
+  it.each([...financialViews, ...ideaViews])('%s does not bypass Vuex for HTTP', (path) => {
     const contents = source(path)
 
     expect(contents).not.toMatch(/from\s+['"]axios['"]/)
@@ -28,10 +34,12 @@ describe('financial architecture boundaries', () => {
   it('does not persist auth or financial state in browser storage', () => {
     const files = [
       ...financialViews,
+      ...ideaViews,
       'src/modules/auth/store/auth.store.js',
       'src/modules/planning/store/funds.store.js',
       'src/modules/planning/store/costs.store.js',
       'src/modules/planning/store/allocations.store.js',
+      'src/modules/planning/store/creationIdeas.store.js',
     ]
 
     files.forEach((path) => {

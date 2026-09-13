@@ -6,6 +6,7 @@ import tasks from '@/modules/planning/store/tasks.store'
 import funds from '@/modules/planning/store/funds.store'
 import allocations from '@/modules/planning/store/allocations.store'
 import costs from '@/modules/planning/store/costs.store'
+import creationIdeas from '@/modules/planning/store/creationIdeas.store'
 import telegram from '@/modules/settings/store/telegram.store'
 import chat from '@/modules/chat/store/chat.store'
 
@@ -20,6 +21,7 @@ const store = createStore({
     funds,
     allocations,
     costs,
+    creationIdeas,
     telegram,
     chat,
   },

@@ -15,7 +15,17 @@
       <p v-if="successMessage" class="alert alert-success">{{ successMessage }}</p>
       <p v-if="errorMessage" class="alert alert-error">{{ errorMessage }}</p>
 
+      <CreationIdeaHint
+        v-if="!isEditing"
+        :context-line="ideaContextLine"
+        :error-message="ideaHintError"
+        :refreshing="ideaLoading"
+        :disabled="!form.project_id"
+        @suggest-another="refreshIdea"
+      />
+
       <form class="form" @submit.prevent="save">
+
         <div class="field">
           <label for="task-project">Project *</label>
           <select
@@ -23,6 +33,7 @@
             v-model.number="form.project_id"
             :disabled="!!lockedProjectId"
             required
+            @change="onProjectChange"
           >
             <option :value="null" disabled>Select a project</option>
             <option v-for="project in projects" :key="project.id" :value="project.id">
@@ -34,7 +45,13 @@
 
         <div class="field">
           <label for="task-title">Task name *</label>
-          <input id="task-title" v-model="form.title" placeholder="e.g. Kickoff meeting" required />
+          <input
+            id="task-title"
+            v-model="form.title"
+            maxlength="255"
+            placeholder="e.g. Kickoff meeting"
+            required
+          />
           <p v-if="fieldErrors.title" class="field__error">{{ fieldErrors.title }}</p>
         </div>
 
@@ -129,7 +146,7 @@
           <button type="button" class="btn btn-ghost" :disabled="saving || deleting" @click="close">
             Cancel
           </button>
-          <button type="submit" :disabled="saving || deleting">
+          <button type="submit" :disabled="saving || deleting || ideaForbidden">
             {{ saving ? 'Saving...' : 'Save' }}
           </button>
         </div>
@@ -141,6 +158,7 @@
 <script setup>
 import { computed, reactive, ref, watch } from 'vue'
 import { useStore } from 'vuex'
+import CreationIdeaHint from '@/modules/planning/components/CreationIdeaHint.vue'
 import {
   TASK_STATUSES,
   TASK_PRIORITIES,
@@ -176,7 +194,41 @@ const errorMessage = ref('')
 const successMessage = ref('')
 const fieldErrors = reactive({})
 
-const isEditing = computed(() => !!props.task?.id)
+const applyIdeaToForm = (idea) => {
+  if (!idea || isEditing.value) return
+  form.title = idea.headline ?? ''
+  form.notes = idea.suggestion ?? ''
+}
+
+const loadIdeaForCreate = async () => {
+  if (isEditing.value || !form.project_id) return
+  try {
+    const idea = await store.dispatch('creationIdeas/fetchIdea', {
+      target: 'task',
+      projectId: form.project_id,
+    })
+    applyIdeaToForm(idea)
+  } catch {
+    // Forbidden and other mapped errors live on the store; the form stays open.
+  }
+}
+
+const refreshIdea = async () => {
+  if (isEditing.value || !form.project_id) return
+  try {
+    const idea = await store.dispatch('creationIdeas/refreshIdea', {
+      target: 'task',
+      projectId: form.project_id,
+    })
+    applyIdeaToForm(idea)
+  } catch {
+    // Keep current title/notes when refresh is forbidden or fails after mapping.
+  }
+}
+
+const onProjectChange = () => {
+  if (!isEditing.value) loadIdeaForCreate()
+}
 
 const emptyForm = () => ({
   project_id: props.lockedProjectId ?? null,
@@ -193,6 +245,12 @@ const emptyForm = () => ({
 })
 
 const form = reactive(emptyForm())
+
+const isEditing = computed(() => !!props.task?.id)
+const ideaLoading = computed(() => store.getters['creationIdeas/isIdeaLoading'])
+const ideaForbidden = computed(() => store.getters['creationIdeas/isIdeaForbidden'])
+const ideaContextLine = computed(() => store.getters['creationIdeas/currentIdea']?.contextLine ?? '')
+const ideaHintError = computed(() => store.getters['creationIdeas/ideaError'] ?? '')
 
 // The reminder must not be scheduled after the task starts. Used to cap the
 // datetime-local input and to validate on save.
@@ -255,17 +313,21 @@ const hydrate = async () => {
     starts_at: props.prefill.starts_at ?? '',
     ends_at: props.prefill.ends_at ?? '',
   })
+  await loadIdeaForCreate()
 }
 
 watch(
   () => props.open,
   (open) => {
     if (open) hydrate()
+    else store.dispatch('creationIdeas/clearIdea')
   },
+  { immediate: true },
 )
 
 const close = () => {
   if (saving.value || deleting.value) return
+  store.dispatch('creationIdeas/clearIdea')
   emit('close')
 }
 
@@ -386,6 +448,10 @@ const remove = async () => {
 .modal__title {
   margin: 0;
   font-size: 1.5rem;
+}
+
+.modal__dialog > .idea-hint {
+  margin-bottom: 1rem;
 }
 
 .modal__loading {
